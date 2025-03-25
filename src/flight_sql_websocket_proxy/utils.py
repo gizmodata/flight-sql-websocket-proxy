@@ -57,6 +57,8 @@ def coro(f):
 def get_dataframe_from_ipc_bytes(bytes_value: bytes) -> pyarrow.Table:
     return pyarrow.ipc.open_stream(bytes_value).read_all()
 
+def get_dataframe_from_ipc_base64_str(base64_str: str) -> pyarrow.Table:
+    return get_dataframe_from_ipc_bytes(base64.b64decode(base64_str))
 
 def get_dataframe_from_parquet_bytes(bytes_value: bytes) -> pyarrow.Table:
     return pq.read_table(source=pyarrow.BufferReader(pyarrow.py_buffer(bytes_value)))

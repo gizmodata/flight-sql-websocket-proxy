@@ -10,6 +10,7 @@ import sys
 import threading
 from time import sleep
 from typing import Any, Set
+from munch import Munch, munchify
 
 import click
 import pandas as pd
@@ -20,7 +21,7 @@ from websockets.legacy.client import connect
 
 from . import __version__ as arrow_flight_sql_websocket_proxy_client_version
 from .constants import SERVER_PORT
-from .utils import get_dataframe_from_ipc_bytes
+from .utils import get_dataframe_from_ipc_base64_str
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -162,7 +163,11 @@ async def run_client(
         return
     else:
         # Authenticate
-        await websocket.send(message=token)
+        message_dict = dict(action="authenticate",
+                            token=token
+                            )
+
+        await websocket.send(json.dumps(message_dict))
 
         print_during_input(f"Successfully connected to {server_uri}.")
 
@@ -184,25 +189,36 @@ async def run_client(
 
             if incoming in done:
                 try:
-                    message = incoming.result()
+                    raw_message = incoming.result()
                 except ConnectionClosed:
                     break
                 else:
-                    if isinstance(message, str):
-                        print_during_input("< " + message)
-                    else:
-                        df = get_dataframe_from_ipc_bytes(bytes_value=message)
-                        if (max_result_set_rows > 0) and (df.num_rows > max_result_set_rows):
-                            print_during_input(
-                                f"Results (only displaying {max_result_set_rows:,} row(s)):\n{df.to_pandas().head(n=max_result_set_rows)}")
-                        else:
-                            print_during_input(f"Results:\n{df.to_pandas()}")
+                    if isinstance(raw_message, str):
+                        message = munchify(x=json.loads(raw_message))
 
-                        print_during_input(
-                            f"\n-----------\nResult set size: {df.num_rows:,} row(s) / {df.nbytes:,} bytes")
+                        if message.kind == "message":
+                            print_during_input("< " + message.message)
+                        elif message.kind == "queryResult":
+                            if message.success:
+                                df = get_dataframe_from_ipc_base64_str(base64_str=message.data)
+                                if (max_result_set_rows > 0) and (df.num_rows > max_result_set_rows):
+                                    print_during_input(
+                                        f"Results (only displaying {max_result_set_rows:,} row(s)):\n{df.to_pandas().head(n=max_result_set_rows)}")
+                                else:
+                                    print_during_input(f"Results:\n{df.to_pandas()}")
+
+                                print_during_input(
+                                    f"\n-----------\nResult set size: {df.num_rows:,} row(s) / {df.nbytes:,} bytes")
+                            elif not message.success:
+                                print_during_input(f"Error: {message.error}")
+                        else:
+                            raise ValueError(f"Unknown message kind: {message.kind}")
 
             if outgoing in done:
-                message_dict = dict(sql=outgoing.result(), parameters=[])
+                message_dict = dict(action="query",
+                                    sql=outgoing.result(),
+                                    parameters=[]
+                                    )
 
                 await websocket.send(json.dumps(message_dict))
 

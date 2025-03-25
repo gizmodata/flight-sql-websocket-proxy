@@ -17,7 +17,6 @@ import adbc_driver_flightsql
 from .server_client import Client
 from .common import ARROW_FLIGHT_SQL_WEBSOCKET_PROXY_SERVER_VERSION
 from ..config import logger
-from ..security import authenticate_user
 
 
 class Server:
@@ -99,36 +98,6 @@ class Server:
                                     ):
             await asyncio.Future()  # run forever
 
-    async def get_user(self, token: str):
-        try:
-            # Verify the token - and get the username
-            authenticated_user = await authenticate_user(oauth2_secret_key=self.clerk_secret_key,
-                                                  jwks_url=self.jwks_url,
-                                                  session_token_issuer=self.session_token_issuer,
-                                                  user_token=token
-                                                  )
-            return authenticated_user, None
-        except Exception as e:
-            logger.exception(msg=str(e))
-            return None, str(e)
-
-    async def authenticate_socket(self,
-                                  websocket_connection):
-        token = await websocket_connection.recv()
-        user, auth_error_message = await self.get_user(token)
-        if user is None:
-            error_message = f"Authentication failed for websocket: '{websocket_connection.id}' - error: {auth_error_message}"
-            logger.warning(msg=error_message)
-            await websocket_connection.send(error_message)
-            await websocket_connection.close(code=CloseCode.INTERNAL_ERROR,
-                                             reason=error_message
-                                             )
-            return
-        else:
-            logger.info(msg=f"User: '{user}' successfully authenticated for websocket: '{websocket_connection.id}'")
-            await websocket_connection.send(f"User: '{user}' successfully authenticated to server.")
-            return user
-
     async def connection_handler(self, websocket):
         if websocket.request.path == "/client":
             await self.client_handler(client_websocket=websocket)
@@ -137,11 +106,8 @@ class Server:
             return
 
     async def client_handler(self, client_websocket):
-        user = await self.authenticate_socket(websocket_connection=client_websocket)
-
         client = Client(server=self,
-                        websocket_connection=client_websocket,
-                        user=user
+                        websocket_connection=client_websocket
                         )
         self.client_connections[client.client_id] = client
         await client.connect()
