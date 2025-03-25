@@ -54,7 +54,7 @@ Homepage = "https://github.com/gizmodata"
 
 [project.scripts]
 flight-sql-websocket-proxy-server = "flight_sql_websocket_proxy.server:main"
-flight-sql-websocket-create-tls-keypair = "gizmo_edge.setup.tls_utilities:main"
+flight-sql-websocket-create-tls-keypair = "flight_sql_websocket_proxy.setup.tls_utilities:main"
 
 [tool.bumpver]
 current_version = "0.0.0"

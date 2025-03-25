@@ -90,6 +90,22 @@ load_dotenv(dotenv_path=".env")
     help="The CLERK Secret Key - for user authentication."
 )
 @click.option(
+    "--jwks-url",
+    type=str,
+    default=os.getenv("JWKS_URL"),
+    show_default=True,
+    required=True,
+    help="The JWKS URL used for client session JWT token validation - for user authentication."
+)
+@click.option(
+    "--session-token-issuer",
+    type=str,
+    default=os.getenv("SESSION_TOKEN_ISSUER"),
+    show_default=True,
+    required=True,
+    help="The issuer used for client session JWT token validation - for user authentication."
+)
+@click.option(
     "--max-process-workers",
     type=int,
     default=os.getenv("MAX_PROCESS_WORKERS", get_cpu_count()),
@@ -123,6 +139,8 @@ async def main(version: bool,
                database_tls_skip_verify: bool,
                clerk_api_url: str,
                clerk_secret_key: str,
+               jwks_url: str,
+               session_token_issuer: str,
                max_process_workers: int,
                websocket_ping_timeout: int,
                max_websocket_message_size: int
@@ -146,6 +164,8 @@ async def main(version: bool,
                  database_tls_skip_verify=database_tls_skip_verify,
                  clerk_api_url=clerk_api_url,
                  clerk_secret_key=clerk_secret_key,
+                 jwks_url=jwks_url,
+                 session_token_issuer=session_token_issuer,
                  max_process_workers=max_process_workers,
                  websocket_ping_timeout=websocket_ping_timeout,
                  max_websocket_message_size=max_websocket_message_size

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import signal
@@ -21,16 +22,12 @@ from . import __version__ as arrow_flight_sql_websocket_proxy_client_version
 from .constants import SERVER_PORT
 from .utils import get_dataframe_from_ipc_bytes
 
-# Misc. Constants
-ARROW_FLIGHT_SQL_WEBSOCKET_PROXY_SERVER_VERSION = arrow_flight_sql_websocket_proxy_server_version
-
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 0)
 pd.set_option('display.max_colwidth', None)
 # pd.set_option('display.colheader_justify', 'center')
 pd.set_option('display.precision', 99)
-
 
 if sys.platform == "win32":
 
@@ -131,7 +128,8 @@ async def run_client(
         inputs: asyncio.Queue[str],
         stop: asyncio.Future[None],
 ) -> None:
-    print(f"Starting Arrow Flight SQL Websocket Proxy Client - version: {ARROW_FLIGHT_SQL_WEBSOCKET_PROXY_SERVER_VERSION}")
+    print(
+        f"Starting Arrow Flight SQL Websocket Proxy Client - version: {arrow_flight_sql_websocket_proxy_client_version}")
 
     scheme = "wss"
 
@@ -195,15 +193,18 @@ async def run_client(
                     else:
                         df = get_dataframe_from_ipc_bytes(bytes_value=message)
                         if (max_result_set_rows > 0) and (df.num_rows > max_result_set_rows):
-                            print_during_input(f"Results (only displaying {max_result_set_rows:,} row(s)):\n{df.to_pandas().head(n=max_result_set_rows)}")
+                            print_during_input(
+                                f"Results (only displaying {max_result_set_rows:,} row(s)):\n{df.to_pandas().head(n=max_result_set_rows)}")
                         else:
                             print_during_input(f"Results:\n{df.to_pandas()}")
 
-                        print_during_input(f"\n-----------\nResult set size: {df.num_rows:,} row(s) / {df.nbytes:,} bytes")
+                        print_during_input(
+                            f"\n-----------\nResult set size: {df.num_rows:,} row(s) / {df.nbytes:,} bytes")
 
             if outgoing in done:
-                message = outgoing.result()
-                await websocket.send(message)
+                message_dict = dict(sql=outgoing.result(), parameters=[])
+
+                await websocket.send(json.dumps(message_dict))
 
             if stop in done:
                 break

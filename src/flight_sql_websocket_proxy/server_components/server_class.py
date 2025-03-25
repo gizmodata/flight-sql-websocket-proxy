@@ -31,6 +31,8 @@ class Server:
                  database_tls_skip_verify: bool,
                  clerk_api_url: str,
                  clerk_secret_key: str,
+                 jwks_url: str,
+                 session_token_issuer: str,
                  max_process_workers: int,
                  websocket_ping_timeout: int,
                  max_websocket_message_size: int
@@ -44,6 +46,8 @@ class Server:
         self.database_tls_skip_verify = database_tls_skip_verify
         self.clerk_api_url = clerk_api_url
         self.clerk_secret_key = clerk_secret_key
+        self.jwks_url = jwks_url
+        self.session_token_issuer = session_token_issuer
         self.max_process_workers = max_process_workers
         self.websocket_ping_timeout = websocket_ping_timeout
         self.max_websocket_message_size = max_websocket_message_size
@@ -62,6 +66,7 @@ class Server:
         self.event_loop = asyncio.get_event_loop()
         self.event_loop.set_default_executor(ThreadPoolExecutor())
         self.process_pool = ProcessPoolExecutor(max_workers=self.max_process_workers)
+        self.thread_pool = ThreadPoolExecutor(max_workers=self.max_process_workers)
         self.bound_handler = functools.partial(self.connection_handler)
 
     async def run(self):
@@ -96,30 +101,27 @@ class Server:
 
     async def get_user(self, token: str):
         try:
-            auth_result, username = True, token
-            # # Verify the password
-            # auth_result = authenticate_user(user_list_filename=self.user_list_filename.as_posix(),
-            #                                 username=username,
-            #                                 password=password,
-            #                                 secret_key=self.secret_key
-            #                                 )
-            if auth_result:
-                return username
-            else:
-                return None
+            # Verify the token - and get the username
+            authenticated_user = await authenticate_user(oauth2_secret_key=self.clerk_secret_key,
+                                                  jwks_url=self.jwks_url,
+                                                  session_token_issuer=self.session_token_issuer,
+                                                  user_token=token
+                                                  )
+            return authenticated_user, None
         except Exception as e:
             logger.exception(msg=str(e))
-            return None
+            return None, str(e)
 
     async def authenticate_socket(self,
                                   websocket_connection):
         token = await websocket_connection.recv()
-        user = await self.get_user(token)
+        user, auth_error_message = await self.get_user(token)
         if user is None:
-            logger.warning(msg=f"Authentication failed for websocket: '{websocket_connection.id}'")
-            await websocket_connection.send("Authentication failed")
+            error_message = f"Authentication failed for websocket: '{websocket_connection.id}' - error: {auth_error_message}"
+            logger.warning(msg=error_message)
+            await websocket_connection.send(error_message)
             await websocket_connection.close(code=CloseCode.INTERNAL_ERROR,
-                                             reason="Authentication failed"
+                                             reason=error_message
                                              )
             return
         else:

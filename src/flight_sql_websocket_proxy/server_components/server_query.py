@@ -60,7 +60,7 @@ class Query:
                                                   )
 
             result_bytes = await self.client.server.event_loop.run_in_executor(
-                executor=self.client.server.process_pool,
+                executor=self.client.server.thread_pool,
                 func=partial_run_query
             )
         except Exception as e:

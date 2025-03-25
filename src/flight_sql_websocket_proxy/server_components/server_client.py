@@ -2,7 +2,7 @@ import json
 import platform
 from typing import TYPE_CHECKING
 
-from munch import Munch
+from munch import munchify
 import websockets
 from adbc_driver_flightsql import dbapi, DatabaseOptions
 from websockets.frames import CloseCode
@@ -34,7 +34,7 @@ class Client:
                                                      db_kwargs={"username": self.server.database_username,
                                                                 "password": self.server.database_password,
                                                                 DatabaseOptions.TLS_SKIP_VERIFY.value: str(
-                                                                    self.server.database_tls_skip_verify).upper()
+                                                                    self.server.database_tls_skip_verify).lower()
                                                                 }
                                                      )
         except Exception as e:
@@ -59,7 +59,7 @@ class Client:
              f"\n- CPU platform: {platform.machine()} "
              f"\n- TLS: {'Enabled' if self.server.ssl_context else 'Disabled'}"
              f"\n- Websocket client connection ID: '{self.websocket_connection.id}' "
-             f"\n- Connection proxied to database server: '{self.database_connection.connection_id}'."
+             f"\n- Connection proxied to database server: '{self.server.database_server_uri}'"
              )
             )
 
@@ -71,7 +71,7 @@ class Client:
                 if message:
                     logger.info(msg=f"Message received from client: '{self.client_id}' - '{message}'")
 
-                    query_munch = Munch.munchify(x=json.loads(message))
+                    query_munch = munchify(x=json.loads(message))
                     query = Query(sql=query_munch.sql,
                                   parameters=query_munch.parameters,
                                   client=self
