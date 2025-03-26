@@ -26,7 +26,7 @@ class Client:
         self.authenticated = False
         self.user = None
         self.database_connection = None
-        self.active_query = None
+        self.queries = {}
 
     async def get_user(self, token: str):
         try:
@@ -135,16 +135,26 @@ class Client:
                     if message.action == "authenticate":
                         self.user = await self.authenticate_client(message)
                     elif message.action == "query":
-                        self.active_query = Query(action=message.action,
-                                                  sql=message.sql,
-                                                  parameters=message.parameters,
-                                                  client=self
-                                                  )
-                        await self.active_query.run_query_async()
-                    elif message.action == "fetch":
-                        await self.active_query.fetch_results_async()
-                    elif message.action == "closeCursor":
-                        await self.active_query.close_cursor()
+                        query = Query(sql=message.sql,
+                                      parameters=message.parameters,
+                                      client=self
+                                      )
+                        await query.run_query_async()
+                        self.queries[query.query_id] = query
+                    elif message.action in ["fetch", "closeCursor"]:
+                        if message.query_id not in self.queries:
+                            error_message = f"Query ID: '{message.query_id}' - does NOT exist for client: '{self.client_id}'"
+                            logger.error(error_message)
+                            message_dict = dict(kind="error",
+                                                responseTo=message.action,
+                                                success=False,
+                                                error=error_message
+                                                )
+                            await self.websocket_connection.send(json.dumps(message_dict))
+                        if message.action == "fetch":
+                            await self.queries[message.query_id].fetch_results_async(fetch_mode=message.fetch_mode)
+                        elif message.action == "closeCursor":
+                            await self.queries[message.query_id].close_cursor()
 
         except websockets.exceptions.ConnectionClosedError:
             pass

@@ -19,14 +19,12 @@ if TYPE_CHECKING:
 
 class Query:
     def __init__(self,
-                 action: str,
                  client: "Client",
                  sql: str,
                  parameters: Optional[List[str]] = None,
                  ):
-        self.action = action
         self.client = client
-        self.query_id = uuid.uuid4()
+        self.query_id = str(uuid.uuid4())
         self.cursor: Cursor = self.client.database_connection.cursor()
         self.record_batch_reader: RecordBatchReader = None
         self.results = None
@@ -45,6 +43,9 @@ class Query:
     async def close_cursor(self):
         if self.cursor:
             self.cursor.close()
+
+        if self.query_id in self.client.queries:
+            del self.client.queries[self.query_id]
 
     @classmethod
     def run_query(cls,
@@ -75,9 +76,10 @@ class Query:
         except Exception as e:
             error_message = f"Query: {self.sql} - FAILED on the server - with error: '{str(e)}'"
             message_dict = dict(kind="queryResult",
-                                responseTo=self.action,
+                                responseTo="query",
                                 success=False,
-                                error=error_message
+                                error=error_message,
+                                query_id=self.query_id
                                 )
             await self.client.websocket_connection.send(json.dumps(message_dict))
         else:
@@ -86,45 +88,44 @@ class Query:
             success_message = f"Query: '{self.query_id}' - execution elapsed time: {str(datetime.fromisoformat(self.end_time) - datetime.fromisoformat(self.start_time))}"
 
             message_dict = dict(kind="queryResult",
-                                responseTo=self.action,
+                                responseTo="query",
                                 success=True,
                                 message=success_message,
-                                query_id=str(self.query_id)
+                                query_id=self.query_id
                                 )
             await self.client.websocket_connection.send(json.dumps(message_dict))
 
     @classmethod
     def fetch_results(cls,
-                      record_batch_reader: RecordBatchReader
-                      ) -> tuple[None, int] | tuple[str, int]:
+                      record_batch_reader: RecordBatchReader,
+                      fetch_mode: str
+                      ) -> tuple[None, int, bool] | tuple[str, int, bool]:
         try:
-            arrow_table: pyarrow.Table = pyarrow.Table.from_batches(batches=[record_batch_reader.read_next_batch()])
+            if fetch_mode == "all":
+                arrow_table: pyarrow.Table = record_batch_reader.read_all()
+                all_rows_fetched = True
+            elif fetch_mode == "batch":
+                arrow_table: pyarrow.Table = pyarrow.Table.from_batches(batches=[record_batch_reader.read_next_batch()])
+                all_rows_fetched = (arrow_table.num_rows == 0)
+            else:
+                raise ValueError(f"Invalid fetch mode: '{fetch_mode}' - must be one of: 'all' or 'batch'")
 
-            return get_dataframe_results_as_ipc_base64_str(df=arrow_table), arrow_table.num_rows
+            return get_dataframe_results_as_ipc_base64_str(df=arrow_table), arrow_table.num_rows, all_rows_fetched
         except StopIteration:
-            return None, int(0)
+            return None, int(0), True
 
-    async def fetch_results_async(self):
+    async def fetch_results_async(self,
+                                  fetch_mode: str
+                                  ):
         await self.client.check_if_authenticated()
 
         if not self.executed:
             error_message = f"Query: '{self.query_id}' - has not been executed yet - cannot fetch results..."
             message_dict = dict(kind="fetchResult",
-                                responseTo=self.action,
+                                responseTo="fetch",
+                                query_id=self.query_id,
                                 success=False,
                                 error=error_message,
-                                data=None
-                                )
-            await self.client.websocket_connection.send(json.dumps(message_dict))
-            return
-        elif self.all_rows_fetched:
-            message_dict = dict(kind="fetchResult",
-                                responseTo=self.action,
-                                success=True,
-                                message=f"Query: '{self.query_id}' - all rows have already been fetched...",
-                                batch_rows_fetched=0,
-                                total_rows_fetched=self.rows_fetched,
-                                all_rows_fetched=True,
                                 data=None
                                 )
             await self.client.websocket_connection.send(json.dumps(message_dict))
@@ -134,9 +135,10 @@ class Query:
         try:
             partial_fetch_results = functools.partial(self.fetch_results,
                                                       record_batch_reader=self.record_batch_reader,
+                                                      fetch_mode=fetch_mode
                                                       )
 
-            result_base64_str, batch_rows_fetched = await self.client.server.event_loop.run_in_executor(
+            result_base64_str, batch_rows_fetched, self.all_rows_fetched = await self.client.server.event_loop.run_in_executor(
                 executor=self.client.server.thread_pool,
                 func=partial_fetch_results
             )
@@ -146,34 +148,26 @@ class Query:
         except Exception as e:
             error_message = f"Fetch for Query ID: {self.query_id} - FAILED on the server - with error: '{str(e)}'"
             message_dict = dict(kind="fetchResult",
-                                responseTo=self.action,
+                                responseTo="fetch",
+                                query_id=self.query_id,
                                 success=False,
                                 error=error_message,
                                 data=None
                                 )
         else:
-            if batch_rows_fetched > 0:
-                success_message = f"Query: '{self.query_id}' - fetched {batch_rows_fetched} row(s) - total fetched thus far: {self.rows_fetched}"
-                message_dict = dict(kind="fetchResult",
-                                    responseTo=self.action,
-                                    success=True,
-                                    message=success_message,
-                                    batch_rows_fetched=batch_rows_fetched,
-                                    total_rows_fetched=self.rows_fetched,
-                                    all_rows_fetched=False,
-                                    data=result_base64_str
-                                    )
-            else:
-                self.all_rows_fetched = True
-                message_dict = dict(kind="fetchResult",
-                                    responseTo=self.action,
-                                    success=True,
-                                    message=f"Query: '{self.query_id}' - no more rows to fetch - total fetched: {self.rows_fetched}",
-                                    batch_rows_fetched=0,
-                                    total_rows_fetched=self.rows_fetched,
-                                    all_rows_fetched=True,
-                                    data=None
-                                    )
+            success_message = f"Query: '{self.query_id}' - fetched {batch_rows_fetched} row(s) - total fetched thus far: {self.rows_fetched}"
+            message_dict = dict(kind="fetchResult",
+                                responseTo="fetch",
+                                query_id=self.query_id,
+                                success=True,
+                                message=success_message,
+                                batch_rows_fetched=batch_rows_fetched,
+                                total_rows_fetched=self.rows_fetched,
+                                all_rows_fetched=self.all_rows_fetched,
+                                data=result_base64_str
+                                )
+
+            if self.all_rows_fetched:
                 await self.close_cursor()
         finally:
             await self.client.websocket_connection.send(json.dumps(message_dict))

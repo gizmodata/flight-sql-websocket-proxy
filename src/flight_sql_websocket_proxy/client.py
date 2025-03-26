@@ -202,13 +202,17 @@ async def run_client(
                            print_during_input("< ERROR: " + message.error)
                         elif message.kind == "queryResult":
                             if message.success:
+                                query_id = message.query_id
                                 fetch_more_data = True
                                 total_rows_fetched = 0
                                 result_set_bytes = 0
                                 remaining_rows_to_print = max_result_set_rows
 
                                 while fetch_more_data:
-                                    message_dict = dict(action="fetch")
+                                    message_dict = dict(action="fetch",
+                                                        query_id=query_id,
+                                                        fetch_mode="batch"
+                                                        )
                                     await websocket.send(json.dumps(message_dict))
 
                                     raw_message = await websocket.recv()
@@ -229,7 +233,9 @@ async def run_client(
                                                     fetch_more_data = False
                                                     print_during_input(
                                                         f"\n-----------\nResult set size: {total_rows_fetched:,} row(s) / {result_set_bytes:,} bytes")
-                                                    message_dict = dict(action="closeCursor")
+                                                    message_dict = dict(action="closeCursor",
+                                                                        query_id = query_id
+                                                                        )
                                                     await websocket.send(json.dumps(message_dict))
                                                     break
 
