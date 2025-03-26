@@ -26,6 +26,7 @@ class Client:
         self.authenticated = False
         self.user = None
         self.database_connection = None
+        self.active_query = None
 
     async def get_user(self, token: str):
         try:
@@ -47,15 +48,19 @@ class Client:
         if user is None:
             error_message = f"Authentication failed for websocket: '{self.websocket_connection.id}' - error: {auth_error_message}"
             logger.warning(msg=error_message)
-            message_dict = dict(kind="message",
+            message_dict = dict(kind="error",
                                 responseTo=message.action,
                                 success=False,
                                 error=error_message
                                 )
             await self.websocket_connection.send(json.dumps(message_dict))
-            await self.websocket_connection.close(code=CloseCode.INTERNAL_ERROR,
-                                                  reason=error_message
-                                                  )
+            try:
+                await self.websocket_connection.close(code=CloseCode.INTERNAL_ERROR,
+                                                      reason=error_message
+                                                      )
+            except:
+                pass
+
             return
         else:
             success_message = f"User: '{user}' successfully authenticated for websocket: '{self.websocket_connection.id}'"
@@ -74,9 +79,12 @@ class Client:
         if not self.authenticated:
             error_message = f"SQL Client Websocket connection: '{self.websocket_connection.id}' - is NOT authenticated!"
             logger.error(error_message)
-            await self.websocket_connection.close(code=CloseCode.POLICY_VIOLATION,
-                                                  reason=error_message
-                                                  )
+            try:
+                await self.websocket_connection.close(code=CloseCode.POLICY_VIOLATION,
+                                                      reason=error_message
+                                                      )
+            except:
+                pass
 
     async def database_connect(self):
         await self.check_if_authenticated()
@@ -127,12 +135,16 @@ class Client:
                     if message.action == "authenticate":
                         self.user = await self.authenticate_client(message)
                     elif message.action == "query":
-                        query = Query(action=message.action,
-                                      sql=message.sql,
-                                      parameters=message.parameters,
-                                      client=self
-                                      )
-                        await query.process_query()
+                        self.active_query = Query(action=message.action,
+                                                  sql=message.sql,
+                                                  parameters=message.parameters,
+                                                  client=self
+                                                  )
+                        await self.active_query.run_query_async()
+                    elif message.action == "fetch":
+                        await self.active_query.fetch_results_async()
+                    elif message.action == "closeCursor":
+                        await self.active_query.close_cursor()
 
         except websockets.exceptions.ConnectionClosedError:
             pass
