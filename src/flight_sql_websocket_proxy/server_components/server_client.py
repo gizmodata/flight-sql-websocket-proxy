@@ -66,7 +66,7 @@ class Client:
             success_message = f"User: '{user}' successfully authenticated for websocket: '{self.websocket_connection.id}'"
             self.user = user
             self.authenticated = True
-            await self.database_connect()
+            await self.database_connect(autocommit=message.autocommit)
             message_dict = dict(kind="message",
                                 responseTo=message.action,
                                 success=True,
@@ -86,7 +86,9 @@ class Client:
             except:
                 pass
 
-    async def database_connect(self):
+    async def database_connect(self,
+                               autocommit: bool
+                               ):
         await self.check_if_authenticated()
         try:
             self.database_connection = dbapi.connect(uri=self.server.database_server_uri,
@@ -94,7 +96,8 @@ class Client:
                                                                 "password": self.server.database_password,
                                                                 DatabaseOptions.TLS_SKIP_VERIFY.value: str(
                                                                     self.server.database_tls_skip_verify).lower()
-                                                                }
+                                                                },
+                                                     autocommit=autocommit
                                                      )
         except Exception as e:
             error_message = f"SQL Client Websocket connection: '{self.websocket_connection.id}' - from user: {self.user} - failed to connect to database URI: {self.server.database_server_uri} - error: {str(e)}"

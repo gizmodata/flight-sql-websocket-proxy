@@ -125,6 +125,7 @@ async def run_client(
         tls_roots: str,
         token: str,
         max_result_set_rows: int,
+        autocommit: bool,
         loop: asyncio.AbstractEventLoop,
         inputs: asyncio.Queue[str],
         stop: asyncio.Future[None],
@@ -164,7 +165,8 @@ async def run_client(
     else:
         # Authenticate
         message_dict = dict(action="authenticate",
-                            token=token
+                            token=token,
+                            autocommit=autocommit
                             )
 
         await websocket.send(json.dumps(message_dict))
@@ -330,13 +332,21 @@ async def run_client(
     required=True,
     help="The maximum number of rows to show in result sets.  A value of 0 means no limit."
 )
+@click.option(
+    "--autocommit/--no-autocommit",
+    type=bool,
+    default=(os.getenv("AUTOCOMMIT", "TRUE").upper() == "TRUE"),
+    show_default=True,
+    help="Enable autocommit mode."
+)
 def main(version: bool,
          server_hostname: str,
          server_port: int,
          tls_verify: bool,
          tls_roots: str,
          token: str,
-         max_result_set_rows: int
+         max_result_set_rows: int,
+         autocommit: bool
          ) -> None:
     if version:
         print(f"Arrow Flight SQL Websocket Proxy Client - version: {arrow_flight_sql_websocket_proxy_client_version}")
@@ -380,6 +390,7 @@ def main(version: bool,
                                 tls_roots=tls_roots,
                                 token=token,
                                 max_result_set_rows=max_result_set_rows,
+                                autocommit=autocommit,
                                 loop=loop,
                                 inputs=inputs,
                                 stop=stop,
