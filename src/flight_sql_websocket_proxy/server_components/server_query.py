@@ -98,24 +98,41 @@ class Query:
     @classmethod
     def fetch_results(cls,
                       record_batch_reader: RecordBatchReader,
-                      fetch_mode: str
+                      fetch_mode: str,
+                      fetch_size: int = 0
                       ) -> tuple[None, int, bool] | tuple[str, int, bool]:
-        try:
-            if fetch_mode == "all":
-                arrow_table: pyarrow.Table = record_batch_reader.read_all()
-                all_rows_fetched = True
-            elif fetch_mode == "batch":
-                arrow_table: pyarrow.Table = pyarrow.Table.from_batches(batches=[record_batch_reader.read_next_batch()])
-                all_rows_fetched = (arrow_table.num_rows == 0)
-            else:
-                raise ValueError(f"Invalid fetch mode: '{fetch_mode}' - must be one of: 'all' or 'batch'")
+        if fetch_mode == "all":
+            arrow_table: pyarrow.Table = record_batch_reader.read_all()
+            all_rows_fetched = True
+        elif fetch_mode == "batch":
+            record_batches = []
+            total_rows_fetched = 0
+            all_rows_fetched = False
+            while True:
+                try:
+                    record_batch: pyarrow.RecordBatch = record_batch_reader.read_next_batch()
+                except StopIteration:
+                    # Just fetch the empty batch - b/c we need the schema
+                    arrow_table = record_batch_reader.read_all()
+                    all_rows_fetched = True
+                    break
 
-            return get_dataframe_results_as_ipc_base64_str(df=arrow_table), arrow_table.num_rows, all_rows_fetched
-        except StopIteration:
-            return None, int(0), True
+                total_rows_fetched += record_batch.num_rows
+                record_batches.append(record_batch)
+
+                if all_rows_fetched or total_rows_fetched >= fetch_size:
+                    break
+
+            if len(record_batches) != 0:
+                arrow_table: pyarrow.Table = pyarrow.Table.from_batches(batches=record_batches)
+        else:
+            raise ValueError(f"Invalid fetch mode: '{fetch_mode}' - must be one of: 'all' or 'batch'")
+
+        return get_dataframe_results_as_ipc_base64_str(df=arrow_table), arrow_table.num_rows, all_rows_fetched
 
     async def fetch_results_async(self,
-                                  fetch_mode: str
+                                  fetch_mode: str,
+                                  fetch_size: int = 0
                                   ):
         await self.client.check_if_authenticated()
 
@@ -135,7 +152,8 @@ class Query:
         try:
             partial_fetch_results = functools.partial(self.fetch_results,
                                                       record_batch_reader=self.record_batch_reader,
-                                                      fetch_mode=fetch_mode
+                                                      fetch_mode=fetch_mode,
+                                                      fetch_size=fetch_size
                                                       )
 
             result_base64_str, batch_rows_fetched, self.all_rows_fetched = await self.client.server.event_loop.run_in_executor(

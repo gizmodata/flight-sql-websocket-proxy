@@ -131,12 +131,12 @@ class Client:
         try:
             async for raw_message in self.websocket_connection:
                 if raw_message:
-                    logger.info(msg=f"Message received from client: '{self.client_id}' - '{raw_message}'")
+                    logger.info(msg=f"Message received from client: '{self.client_id}' (User: {self.user or '(not authenticated)'}) - '{raw_message}'")
 
                     message = munchify(x=json.loads(raw_message))
 
                     if message.action == "authenticate":
-                        self.user = await self.authenticate_client(message)
+                        await self.authenticate_client(message)
                     elif message.action == "query":
                         query = Query(sql=message.sql,
                                       parameters=message.parameters,
@@ -155,7 +155,9 @@ class Client:
                                                 )
                             await self.websocket_connection.send(json.dumps(message_dict))
                         if message.action == "fetch":
-                            await self.queries[message.query_id].fetch_results_async(fetch_mode=message.fetch_mode)
+                            await self.queries[message.query_id].fetch_results_async(fetch_mode=message.fetch_mode,
+                                                                                     fetch_size=message.get("fetch_size", self.server.client_default_fetch_size)
+                                                                                     )
                         elif message.action == "closeCursor":
                             await self.queries[message.query_id].close_cursor()
 

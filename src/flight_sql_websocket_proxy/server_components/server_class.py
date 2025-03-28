@@ -34,7 +34,8 @@ class Server:
                  session_token_issuer: str,
                  max_process_workers: int,
                  websocket_ping_timeout: int,
-                 max_websocket_message_size: int
+                 max_websocket_message_size: int,
+                 client_default_fetch_size: int,
                  ):
         self.port = port
         self.tls_certfile = tls_certfile
@@ -50,6 +51,7 @@ class Server:
         self.max_process_workers = max_process_workers
         self.websocket_ping_timeout = websocket_ping_timeout
         self.max_websocket_message_size = max_websocket_message_size
+        self.client_default_fetch_size = client_default_fetch_size
 
         self.lock = asyncio.Lock()
         self.client_connections = Munch()

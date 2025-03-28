@@ -5,7 +5,7 @@ import click
 from dotenv import load_dotenv
 
 from . import __version__ as arrow_flight_sql_websocket_proxy_server_version
-from .constants import DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE, \
+from .constants import DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE, DEFAULT_CLIENT_FETCH_SIZE, \
     SERVER_PORT
 from .server_components.server_class import Server
 from .setup.tls_utilities import DEFAULT_CERT_FILE, DEFAULT_KEY_FILE
@@ -129,6 +129,14 @@ load_dotenv(dotenv_path=".env")
     required=True,
     help="Maximum Websocket message size"
 )
+@click.option(
+    "--client-default-fetch-size",
+    type=int,
+    default=DEFAULT_CLIENT_FETCH_SIZE,
+    show_default=True,
+    required=True,
+    help="The default websocket client fetch size for queries."
+)
 @coro
 async def main(version: bool,
                port: int,
@@ -143,7 +151,8 @@ async def main(version: bool,
                session_token_issuer: str,
                max_process_workers: int,
                websocket_ping_timeout: int,
-               max_websocket_message_size: int
+               max_websocket_message_size: int,
+               client_default_fetch_size: int
                ):
     if version:
         print(f"Arrow Flight SQL Websocket Proxy Server - version: {arrow_flight_sql_websocket_proxy_server_version}")
@@ -168,7 +177,8 @@ async def main(version: bool,
                  session_token_issuer=session_token_issuer,
                  max_process_workers=max_process_workers,
                  websocket_ping_timeout=websocket_ping_timeout,
-                 max_websocket_message_size=max_websocket_message_size
+                 max_websocket_message_size=max_websocket_message_size,
+                 client_default_fetch_size=client_default_fetch_size
                  ).run()
 
 

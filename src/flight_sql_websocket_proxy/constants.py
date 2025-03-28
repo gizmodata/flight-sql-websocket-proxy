@@ -1,5 +1,6 @@
 # Constants
 DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE = 1024 ** 3
+DEFAULT_CLIENT_FETCH_SIZE = 50
 TIMER_TEXT = "{name}: Elapsed time: {:.4f} seconds"
 
 SERVER_PORT = 8765
