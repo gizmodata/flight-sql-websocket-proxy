@@ -8,9 +8,7 @@ from . import __version__ as arrow_flight_sql_websocket_proxy_server_version
 from .constants import DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE, DEFAULT_CLIENT_FETCH_SIZE, \
     SERVER_PORT
 from .server_components.server_class import Server
-from .setup.tls_utilities import DEFAULT_CERT_FILE, DEFAULT_KEY_FILE
-from .utils import coro, get_cpu_count, \
-    get_memory_limit
+from .utils import coro, get_cpu_count
 
 # Load our environment file if it is present
 load_dotenv(dotenv_path=".env")
@@ -36,7 +34,7 @@ load_dotenv(dotenv_path=".env")
 @click.option(
     "--tls",
     nargs=2,
-    default=os.getenv("TLS").split(" ") if os.getenv("TLS") else [DEFAULT_CERT_FILE, DEFAULT_KEY_FILE],
+    default=os.getenv("TLS").split(" ") if os.getenv("TLS") else None,
     required=False,
     metavar=('CERTFILE', 'KEYFILE'),
     help="Enable transport-level security (TLS/SSL).  Provide a Certificate file path, and a Key file path - separated by a space.  Example: tls/server.crt tls/server.key"

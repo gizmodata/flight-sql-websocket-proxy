@@ -1,0 +1,157 @@
+name: flight-sql-websocket-proxy-ci
+
+on:
+  push:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+env:
+  DOCKER_IMAGE_NAME: ghcr.io/gizmodata/flight-sql-websocket-proxy
+
+jobs:
+  get-package-version:
+    runs-on: ubuntu-latest
+    name: Get Package Version from GitHub ref
+    outputs:
+      PACKAGE_VERSION: ${{ steps.extract_ref.outputs.package_version }}
+    steps:
+      - id: extract_ref
+        name: Extract GitHub ref_name
+        run: |
+          CLEAN_REF=$(echo "${{ github.ref_name }}" | tr '/' '-')
+          echo "package_version=${CLEAN_REF}" >> $GITHUB_OUTPUT
+
+      - name: Log package version
+        run: |
+          echo "PACKAGE_VERSION=${{ steps.extract_ref.outputs.package_version }}"
+
+  docker:
+    name: Build and publish Docker image to Github Container Registry
+    needs: get-package-version
+    strategy:
+      matrix:
+        include:
+          - platform: amd64
+            runner: ubuntu-latest
+          - platform: arm64
+            runner: buildjet-4vcpu-ubuntu-2204-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub (for image pulls)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the Docker image
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/${{ matrix.platform }}
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.get-package-version.outputs.PACKAGE_VERSION }}-${{ matrix.platform }}
+          no-cache: true
+          provenance: false
+
+  update-image-manifest:
+    name: Update DockerHub image manifest to include all built platforms
+    needs: [docker, get-package-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Docker Hub (for image pulls)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest images - package version
+        uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
+        with:
+          inputs: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.get-package-version.outputs.PACKAGE_VERSION }}
+          images: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.get-package-version.outputs.PACKAGE_VERSION }}-amd64,${{ env.DOCKER_IMAGE_NAME }}:${{ needs.get-package-version.outputs.PACKAGE_VERSION }}-arm64
+          push: true
+
+      - name: Create and push manifest images - latest
+        uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          inputs: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          images: ${{ env.DOCKER_IMAGE_NAME }}:${{ needs.get-package-version.outputs.PACKAGE_VERSION }}-amd64,${{ env.DOCKER_IMAGE_NAME }}:${{ needs.get-package-version.outputs.PACKAGE_VERSION }}-arm64
+          push: true
+
+  build-n-publish:
+    name: Build and publish Python 🐍 distributions 📦 Github Packages and the Release
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
+      id-token: write  # IMPORTANT: mandatory for sigstore
+    needs: [docker, get-package-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pypa/build
+        run: >-
+          python -m
+          pip install
+          build
+          --user
+
+      - name: Build a binary wheel and a source tarball
+        run: >-
+          python -m
+          build
+          --sdist
+          --wheel
+          --outdir dist/
+          .
+
+      - name: Sign the dists with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        with:
+          inputs: >-
+            ./dist/*.tar.gz
+            ./dist/*.whl
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flight-sql-websocket-proxy-python-wheel.zip
+          path: |
+            ./dist/*.whl
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ./dist/*.whl
+            LICENSE
+            README.md
