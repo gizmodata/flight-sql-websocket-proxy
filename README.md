@@ -88,8 +88,82 @@ DATABASE_PASSWORD=gizmosql_password
 DATABASE_TLS_SKIP_VERIFY=TRUE
 ```
 
-### Running the Docker image
-You can optionally run the Flight SQL WebSocket Proxy Server image:
+### Running the server locally
+You can run the Flight SQL WebSocket Proxy Server executable locally - here is the help output:
+```shell
+flight-sql-websocket-proxy-server  --help
+Usage: flight-sql-websocket-proxy-server [OPTIONS]
+
+Options:
+  --version / --no-version        Prints the Arrow Flight SQL WebSocket Proxy
+                                  Server version and exits.  [required]
+  --port INTEGER                  Run the websocket server on this port.
+                                  Defaults to environment variable SERVER_PORT
+                                  if set, or 8765 if not set.  [default: 8765;
+                                  required]
+  --tls ('CERTFILE', 'KEYFILE')   Enable transport-level security (TLS/SSL).
+                                  Provide a Certificate file path, and a Key
+                                  file path - separated by a space.  Defaults
+                                  to environment variable TLS if set.
+                                  Example: tls/server.crt tls/server.key
+  --database-server-uri TEXT      The URI of the Arrow Flight SQL server.
+                                  Defaults to environment variable
+                                  DATABASE_SERVER_URI if set, or
+                                  grpc+tls://localhost:31337 if not set.
+                                  [required]
+  --database-username TEXT        The username to authenticate with the Arrow
+                                  Flight SQL server.  Defaults to environment
+                                  variable DATABASE_USERNAME if set.
+                                  [required]
+  --database-password TEXT        The password to authenticate with the Arrow
+                                  Flight SQL server.  Defaults to environment
+                                  variable DATABASE_PASSWORD if set.
+                                  [required]
+  --database-tls-skip-verify / --no-database-tls-skip-verify
+                                  Skip TLS verification of the Arrow Flight
+                                  SQL server.  Defaults to environment
+                                  variable DATABASE_TLS_SKIP_VERIFY if set, or
+                                  FALSE if not set.  [default: database-tls-
+                                  skip-verify; required]
+  --clerk-api-url TEXT            The CLERK API URL - for user authentication.
+                                  Defaults to environment variable
+                                  CLERK_API_URL if set, or
+                                  https://api.clerk.dev if not set.
+                                  [required]
+  --clerk-secret-key TEXT         The CLERK Secret Key - for user
+                                  authentication.  Defaults to environment
+                                  variable CLERK_SECRET_KEY if set.
+                                  [required]
+  --jwks-url TEXT                 The JWKS URL used for client session JWT
+                                  token validation - for user authentication.
+                                  Defaults to environment variable JWKS_URL if
+                                  set.  Example: https://wise-
+                                  cattle-777.clerk.accounts.dev/.well-
+                                  known/jwks.json  [required]
+  --session-token-issuer TEXT     The issuer used for client session JWT token
+                                  validation - for user authentication.
+                                  Defaults to environment variable
+                                  SESSION_TOKEN_ISSUER if set.  Example:
+                                  https://wise-cattle-777.clerk.accounts.dev
+                                  [required]
+  --max-process-workers INTEGER   Max process workers.  Defaults to
+                                  environment variable MAX_PROCESS_WORKERS if
+                                  set.  [default: 10; required]
+  --websocket-ping-timeout INTEGER
+                                  Web-socket ping timeout.  Defaults to
+                                  environment variable PING_TIMEOUT if set.
+                                  [default: 60; required]
+  --max-websocket-message-size INTEGER
+                                  Maximum Websocket message size  [default:
+                                  1073741824; required]
+  --client-default-fetch-size INTEGER
+                                  The default websocket client fetch size for
+                                  queries.  [default: 50; required]
+  --help                          Show this message and exit.
+```
+
+### Running the server via Docker
+You can optionally run the Flight SQL WebSocket Proxy Server via Docker:
 
 **Note** - this assumes that you have your Github Access Token stored as an env var named `{GITHUB_ACCESS_TOKEN}`.  See: [Creating a personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) for more information.
 

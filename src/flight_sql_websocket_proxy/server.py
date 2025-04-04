@@ -29,7 +29,7 @@ load_dotenv(dotenv_path=".env")
     default=os.getenv("SERVER_PORT", SERVER_PORT),
     show_default=True,
     required=True,
-    help="Run the websocket server on this port."
+    help=f"Run the websocket server on this port.  Defaults to environment variable SERVER_PORT if set, or {SERVER_PORT} if not set."
 )
 @click.option(
     "--tls",
@@ -37,23 +37,23 @@ load_dotenv(dotenv_path=".env")
     default=os.getenv("TLS").split(" ") if os.getenv("TLS") else None,
     required=False,
     metavar=('CERTFILE', 'KEYFILE'),
-    help="Enable transport-level security (TLS/SSL).  Provide a Certificate file path, and a Key file path - separated by a space.  Example: tls/server.crt tls/server.key"
+    help="Enable transport-level security (TLS/SSL).  Provide a Certificate file path, and a Key file path - separated by a space.  Defaults to environment variable TLS if set.  Example: tls/server.crt tls/server.key"
 )
 @click.option(
     "--database-server-uri",
     type=str,
     default=os.getenv("DATABASE_SERVER_URI", "grpc+tls://localhost:31337"),
-    show_default=True,
+    show_default=False,
     required=True,
-    help="The URI of the Arrow Flight SQL server."
+    help="The URI of the Arrow Flight SQL server.  Defaults to environment variable DATABASE_SERVER_URI if set, or grpc+tls://localhost:31337 if not set."
 )
 @click.option(
     "--database-username",
     type=str,
     default=os.getenv("DATABASE_USERNAME", "gizmosql_username"),
-    show_default=True,
+    show_default=False,
     required=True,
-    help="The username to authenticate with the Arrow Flight SQL server."
+    help="The username to authenticate with the Arrow Flight SQL server.  Defaults to environment variable DATABASE_USERNAME if set."
 )
 @click.option(
     "--database-password",
@@ -61,23 +61,23 @@ load_dotenv(dotenv_path=".env")
     default=os.getenv("DATABASE_PASSWORD"),
     show_default=False,
     required=True,
-    help="The password to authenticate with the Arrow Flight SQL server."
+    help="The password to authenticate with the Arrow Flight SQL server.  Defaults to environment variable DATABASE_PASSWORD if set."
 )
 @click.option(
     "--database-tls-skip-verify/--no-database-tls-skip-verify",
     type=bool,
-    default=(os.getenv("DATABASE_TLS_SKIP_VERIFY").upper() == "TRUE"),
+    default=(os.getenv("DATABASE_TLS_SKIP_VERIFY", "FALSE").upper() == "TRUE"),
     show_default=True,
     required=True,
-    help="Skip TLS verification of the Arrow Flight SQL server."
+    help="Skip TLS verification of the Arrow Flight SQL server.  Defaults to environment variable DATABASE_TLS_SKIP_VERIFY if set, or FALSE if not set."
 )
 @click.option(
     "--clerk-api-url",
     type=str,
     default=os.getenv("CLERK_API_URL", "https://api.clerk.dev"),
-    show_default=True,
+    show_default=False,
     required=True,
-    help="The CLERK API URL - for user authentication."
+    help="The CLERK API URL - for user authentication.  Defaults to environment variable CLERK_API_URL if set, or https://api.clerk.dev if not set."
 )
 @click.option(
     "--clerk-secret-key",
@@ -85,23 +85,23 @@ load_dotenv(dotenv_path=".env")
     default=os.getenv("CLERK_SECRET_KEY"),
     show_default=False,
     required=True,
-    help="The CLERK Secret Key - for user authentication."
+    help="The CLERK Secret Key - for user authentication.  Defaults to environment variable CLERK_SECRET_KEY if set."
 )
 @click.option(
     "--jwks-url",
     type=str,
     default=os.getenv("JWKS_URL"),
-    show_default=True,
+    show_default=False,
     required=True,
-    help="The JWKS URL used for client session JWT token validation - for user authentication."
+    help="The JWKS URL used for client session JWT token validation - for user authentication.  Defaults to environment variable JWKS_URL if set.  Example: https://wise-cattle-777.clerk.accounts.dev/.well-known/jwks.json"
 )
 @click.option(
     "--session-token-issuer",
     type=str,
     default=os.getenv("SESSION_TOKEN_ISSUER"),
-    show_default=True,
+    show_default=False,
     required=True,
-    help="The issuer used for client session JWT token validation - for user authentication."
+    help="The issuer used for client session JWT token validation - for user authentication.  Defaults to environment variable SESSION_TOKEN_ISSUER if set.  Example: https://wise-cattle-777.clerk.accounts.dev"
 )
 @click.option(
     "--max-process-workers",
@@ -109,7 +109,7 @@ load_dotenv(dotenv_path=".env")
     default=os.getenv("MAX_PROCESS_WORKERS", get_cpu_count()),
     show_default=True,
     required=True,
-    help="Max process workers"
+    help="Max process workers.  Defaults to environment variable MAX_PROCESS_WORKERS if set."
 )
 @click.option(
     "--websocket-ping-timeout",
@@ -117,7 +117,7 @@ load_dotenv(dotenv_path=".env")
     default=os.getenv("PING_TIMEOUT", 60),
     show_default=True,
     required=True,
-    help="Web-socket ping timeout"
+    help="Web-socket ping timeout.  Defaults to environment variable PING_TIMEOUT if set."
 )
 @click.option(
     "--max-websocket-message-size",
