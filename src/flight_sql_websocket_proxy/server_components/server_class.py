@@ -76,6 +76,7 @@ class Server:
         logger.info(
             msg=(f"Starting Arrow Flight SQL Websocket Proxy Server - version: {self.version} - (\n"
                  f" port: {self.port},\n"
+                 f" base_path: {self.base_path},\n"
                  f" tls_certfile: {self.tls_certfile.as_posix() if self.tls_certfile else 'None'},\n"
                  f" tls_keyfile: {self.tls_keyfile.as_posix() if self.tls_keyfile else 'None'},\n"
                  f" database_server_uri: {self.database_server_uri},\n"
@@ -84,6 +85,7 @@ class Server:
                  f" max_process_workers: {self.max_process_workers},\n"
                  f" websocket_ping_timeout: {self.websocket_ping_timeout},\n"
                  f" max_websocket_message_size: {self.max_websocket_message_size}\n"
+                 f" client_default_fetch_size: {self.client_default_fetch_size}\n"
                  f")"
                  )
         )
@@ -91,7 +93,7 @@ class Server:
         logger.info(f"Using Python version: {sys.version}")
         logger.info(f"Using Websockets version: {websockets.__version__}")
         logger.info(f"Using ADBC Flight SQL driver version: {adbc_driver_flightsql.__version__}")
-        logger.info(f"TLS: {'Enabled' if self.ssl_context else 'Disabled'}")
+        logger.info(f"TLS: {'Enabled - clients should connect with protocol/scheme wss://' if self.ssl_context else 'Disabled - clients should connect with protocol/scheme ws://'}")
 
         async with websockets.serve(handler=self.bound_handler,
                                     host="0.0.0.0",
