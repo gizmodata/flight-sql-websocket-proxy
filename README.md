@@ -185,6 +185,50 @@ docker run --name flight-sql-websocket-proxy \
            ghcr.io/gizmodata/flight-sql-websocket-proxy:latest
 ```
 
+### Running the client
+You can run the Flight SQL WebSocket Proxy Client executable locally - here is the help output:
+```bash
+flight-sql-websocket-proxy-client --help
+Usage: flight-sql-websocket-proxy-client [OPTIONS]
+
+Options:
+  --version / --no-version        Prints the Arrow Flight SQL Websocket Proxy
+                                  Client version and exits.  [required]
+  --server-protocol [wss|ws]      The protocol of the Arrow Flight SQL
+                                  Websocket Proxy server.  Defaults to
+                                  environment variable SERVER_PROTOCOL if set,
+                                  or wss if not set.  [required]
+  --server-hostname TEXT          The hostname of the Arrow Flight SQL
+                                  Websocket Proxy server.  Defaults to
+                                  environment variable SERVER_HOSTNAME if set,
+                                  or localhost if not set.  [required]
+  --server-port INTEGER           The port of the Arrow Flight SQL Websocket
+                                  Proxy server.  Defaults to environment
+                                  variable SERVER_PORT if set, or 8765 if not
+                                  set.  [required]
+  --server-base-path TEXT         The base path of the Arrow Flight SQL
+                                  Websocket Proxy server.  Defaults to
+                                  environment variable SERVER_BASE_PATH if
+                                  set, or / if not set.  [required]
+  --tls-verify / --no-tls-verify  Verify the server's TLS certificate hostname
+                                  and signature.  Using --no-tls-verify is
+                                  insecure, only use for development purposes!
+                                  [default: tls-verify]
+  --tls-roots TEXT                'Path to trusted TLS certificate(s).
+                                  Defaults to environment variable TLS_ROOTS
+                                  if set.  If not set, the system default
+                                  trusted certificates will be used.
+  --token TEXT                    The client clerk JWT token to authenticate
+                                  with.  Defaults to environment variable
+                                  TOKEN if set.  [required]
+  --max-result-set-rows INTEGER   The maximum number of rows to show in result
+                                  sets.  A value of 0 means no limit.
+                                  [default: 100; required]
+  --autocommit / --no-autocommit  Enable autocommit mode.  [default:
+                                  autocommit]
+  --help                          Show this message and exit.
+```
+
 ### Handy development commands
 
 #### Version management

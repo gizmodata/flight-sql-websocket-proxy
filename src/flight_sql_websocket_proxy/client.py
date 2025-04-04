@@ -10,17 +10,17 @@ import sys
 import threading
 from time import sleep
 from typing import Any, Set
-from munch import Munch, munchify
 
 import click
 import pandas as pd
+from munch import munchify
 from pglast import parser
 from websockets.exceptions import ConnectionClosed
 from websockets.frames import Close
 from websockets.legacy.client import connect
 
 from . import __version__ as arrow_flight_sql_websocket_proxy_client_version
-from .constants import SERVER_PORT
+from .constants import SERVER_PROTOCOL, SERVER_PORT, SERVER_BASE_PATH
 from .utils import get_dataframe_from_ipc_base64_str
 
 pd.set_option('display.max_rows', None)
@@ -118,9 +118,11 @@ async def is_sql_command(message: str) -> bool:
         return True
 
 
-async def run_client(
+async def _run_client(
+        server_protocol: str,
         server_hostname: str,
         server_port: int,
+        server_base_path: str,
         tls_verify: bool,
         tls_roots: str,
         token: str,
@@ -133,23 +135,24 @@ async def run_client(
     print(
         f"Starting Arrow Flight SQL Websocket Proxy Client - version: {arrow_flight_sql_websocket_proxy_client_version}")
 
-    scheme = "wss"
+    scheme = server_protocol.lower()
 
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context = None
+    if scheme == "wss":
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.load_default_certs()
 
-    ssl_context.load_default_certs()
+        if tls_verify:
+            ssl_context.check_hostname = True
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            if tls_roots:
+                ssl_context.load_verify_locations(cafile=tls_roots)
+        else:
+            print("WARNING: TLS Verification is disabled.")
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
 
-    if tls_verify:
-        ssl_context.check_hostname = True
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        if tls_roots:
-            ssl_context.load_verify_locations(cafile=tls_roots)
-    else:
-        print("WARNING: TLS Verification is disabled.")
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
-    server_uri = f"{scheme}://{server_hostname}:{server_port}/client"
+    server_uri = f"{scheme}://{server_hostname}:{server_port}{server_base_path.rstrip('/')}/client"
     print(f"Connecting to Server URI: {server_uri}")
 
     try:
@@ -201,7 +204,7 @@ async def run_client(
                         if message.kind == "message":
                             print_during_input("< " + message.message)
                         elif message.kind == "error":
-                           print_during_input("< ERROR: " + message.error)
+                            print_during_input("< ERROR: " + message.error)
                         elif message.kind == "queryResult":
                             if message.success:
                                 query_id = message.query_id
@@ -236,7 +239,7 @@ async def run_client(
                                                     print_during_input(
                                                         f"\n-----------\nResult set size: {total_rows_fetched:,} row(s) / {result_set_bytes:,} bytes")
                                                     message_dict = dict(action="closeCursor",
-                                                                        query_id = query_id
+                                                                        query_id=query_id
                                                                         )
                                                     await websocket.send(json.dumps(message_dict))
                                                     break
@@ -277,77 +280,17 @@ async def run_client(
         exit_from_event_loop_thread(loop, stop)
 
 
-@click.command()
-@click.option(
-    "--version/--no-version",
-    type=bool,
-    default=False,
-    show_default=False,
-    required=True,
-    help="Prints the Arrow Flight SQL Websocket Proxy Client version and exits."
-)
-@click.option(
-    "--server-hostname",
-    type=str,
-    default=os.getenv("SERVER_HOSTNAME", "localhost"),
-    show_default=True,
-    required=True,
-    help="The hostname of the Arrow Flight SQL Websocket Proxy server."
-)
-@click.option(
-    "--server-port",
-    type=int,
-    default=os.getenv("SERVER_PORT", SERVER_PORT),
-    show_default=True,
-    required=True,
-    help="The port of the Arrow Flight SQL Websocket Proxy server."
-)
-@click.option(
-    "--tls-verify/--no-tls-verify",
-    type=bool,
-    default=(os.getenv("TLS_VERIFY", "TRUE").upper() == "TRUE"),
-    show_default=True,
-    help="Verify the server's TLS certificate hostname and signature.  Using --no-tls-verify is insecure, only use for development purposes!"
-)
-@click.option(
-    "--tls-roots",
-    type=str,
-    default=os.getenv("TLS_ROOTS"),
-    show_default=True,
-    help="'Path to trusted TLS certificate(s)"
-)
-@click.option(
-    "--token",
-    type=str,
-    default=os.getenv("TOKEN"),
-    show_default=False,
-    required=True,
-    help="The client clerk JWT token to authenticate with."
-)
-@click.option(
-    "--max-result-set-rows",
-    type=int,
-    default=100,
-    show_default=True,
-    required=True,
-    help="The maximum number of rows to show in result sets.  A value of 0 means no limit."
-)
-@click.option(
-    "--autocommit/--no-autocommit",
-    type=bool,
-    default=(os.getenv("AUTOCOMMIT", "TRUE").upper() == "TRUE"),
-    show_default=True,
-    help="Enable autocommit mode."
-)
-def main(version: bool,
-         server_hostname: str,
-         server_port: int,
-         tls_verify: bool,
-         tls_roots: str,
-         token: str,
-         max_result_set_rows: int,
-         autocommit: bool
-         ) -> None:
+def run_client(version: bool,
+               server_protocol: str,
+               server_hostname: str,
+               server_port: int,
+               server_base_path: str,
+               tls_verify: bool,
+               tls_roots: str,
+               token: str,
+               max_result_set_rows: int,
+               autocommit: bool
+               ):
     if version:
         print(f"Arrow Flight SQL Websocket Proxy Client - version: {arrow_flight_sql_websocket_proxy_client_version}")
         return
@@ -384,17 +327,19 @@ def main(version: bool,
     stop: asyncio.Future[None] = loop.create_future()
 
     # Schedule the task that will manage the connection.
-    loop.create_task(run_client(server_hostname=server_hostname,
-                                server_port=server_port,
-                                tls_verify=tls_verify,
-                                tls_roots=tls_roots,
-                                token=token,
-                                max_result_set_rows=max_result_set_rows,
-                                autocommit=autocommit,
-                                loop=loop,
-                                inputs=inputs,
-                                stop=stop,
-                                )
+    loop.create_task(_run_client(server_protocol=server_protocol,
+                                 server_hostname=server_hostname,
+                                 server_port=server_port,
+                                 server_base_path=server_base_path,
+                                 tls_verify=tls_verify,
+                                 tls_roots=tls_roots,
+                                 token=token,
+                                 max_result_set_rows=max_result_set_rows,
+                                 autocommit=autocommit,
+                                 loop=loop,
+                                 inputs=inputs,
+                                 stop=stop,
+                                 )
                      )
 
     # Start the event loop in a background thread.
@@ -431,5 +376,97 @@ def main(version: bool,
     loop.close()
 
 
+@click.command()
+@click.option(
+    "--version/--no-version",
+    type=bool,
+    default=False,
+    show_default=False,
+    required=True,
+    help="Prints the Arrow Flight SQL Websocket Proxy Client version and exits."
+)
+@click.option(
+    "--server-protocol",
+    type=click.Choice(["wss", "ws"]),
+    default=os.getenv("SERVER_PROTOCOL", SERVER_PROTOCOL),
+    show_default=False,
+    required=True,
+    help=f"The protocol of the Arrow Flight SQL Websocket Proxy server.  Defaults to environment variable SERVER_PROTOCOL if set, or {SERVER_PROTOCOL} if not set."
+)
+@click.option(
+    "--server-hostname",
+    type=str,
+    default=os.getenv("SERVER_HOSTNAME", "localhost"),
+    show_default=False,
+    required=True,
+    help="The hostname of the Arrow Flight SQL Websocket Proxy server.  Defaults to environment variable SERVER_HOSTNAME if set, or localhost if not set."
+)
+@click.option(
+    "--server-port",
+    type=int,
+    default=os.getenv("SERVER_PORT", SERVER_PORT),
+    show_default=False,
+    required=True,
+    help=f"The port of the Arrow Flight SQL Websocket Proxy server.  Defaults to environment variable SERVER_PORT if set, or {SERVER_PORT} if not set."
+)
+@click.option(
+    "--server-base-path",
+    type=str,
+    default=os.getenv("SERVER_BASE_PATH", SERVER_BASE_PATH),
+    show_default=False,
+    required=True,
+    help=f"The base path of the Arrow Flight SQL Websocket Proxy server.  Defaults to environment variable SERVER_BASE_PATH if set, or {SERVER_BASE_PATH} if not set."
+)
+@click.option(
+    "--tls-verify/--no-tls-verify",
+    type=bool,
+    default=(os.getenv("TLS_VERIFY", "TRUE").upper() == "TRUE"),
+    show_default=True,
+    help="Verify the server's TLS certificate hostname and signature.  Using --no-tls-verify is insecure, only use for development purposes!"
+)
+@click.option(
+    "--tls-roots",
+    type=str,
+    default=os.getenv("TLS_ROOTS"),
+    show_default=True,
+    help="'Path to trusted TLS certificate(s).  Defaults to environment variable TLS_ROOTS if set.  If not set, the system default trusted certificates will be used."
+)
+@click.option(
+    "--token",
+    type=str,
+    default=os.getenv("TOKEN"),
+    show_default=False,
+    required=True,
+    help="The client clerk JWT token to authenticate with.  Defaults to environment variable TOKEN if set."
+)
+@click.option(
+    "--max-result-set-rows",
+    type=int,
+    default=100,
+    show_default=True,
+    required=True,
+    help="The maximum number of rows to show in result sets.  A value of 0 means no limit."
+)
+@click.option(
+    "--autocommit/--no-autocommit",
+    type=bool,
+    default=(os.getenv("AUTOCOMMIT", "TRUE").upper() == "TRUE"),
+    show_default=True,
+    help="Enable autocommit mode."
+)
+def click_run_client(version: bool,
+                     server_protocol: str,
+                     server_hostname: str,
+                     server_port: int,
+                     server_base_path: str,
+                     tls_verify: bool,
+                     tls_roots: str,
+                     token: str,
+                     max_result_set_rows: int,
+                     autocommit: bool
+                     ) -> None:
+    run_client(**locals())
+
+
 if __name__ == "__main__":
-    main()
+    click_run_client()

@@ -6,12 +6,58 @@ from dotenv import load_dotenv
 
 from . import __version__ as arrow_flight_sql_websocket_proxy_server_version
 from .constants import DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE, DEFAULT_CLIENT_FETCH_SIZE, \
-    SERVER_PORT
+    SERVER_PORT, SERVER_BASE_PATH
 from .server_components.server_class import Server
 from .utils import coro, get_cpu_count
 
 # Load our environment file if it is present
 load_dotenv(dotenv_path=".env")
+
+
+async def run_server(version: bool,
+                     port: int,
+                     base_path: str,
+                     tls: list,
+                     database_server_uri: str,
+                     database_username: str,
+                     database_password: str,
+                     database_tls_skip_verify: bool,
+                     clerk_api_url: str,
+                     clerk_secret_key: str,
+                     jwks_url: str,
+                     session_token_issuer: str,
+                     max_process_workers: int,
+                     websocket_ping_timeout: int,
+                     max_websocket_message_size: int,
+                     client_default_fetch_size: int
+                     ):
+    if version:
+        print(f"Arrow Flight SQL Websocket Proxy Server - version: {arrow_flight_sql_websocket_proxy_server_version}")
+        return
+
+    tls_certfile = None
+    tls_keyfile = None
+    if tls:
+        tls_certfile = Path(tls[0])
+        tls_keyfile = Path(tls[1])
+
+    await Server(port=port,
+                 base_path=base_path,
+                 tls_certfile=tls_certfile,
+                 tls_keyfile=tls_keyfile,
+                 database_server_uri=database_server_uri,
+                 database_username=database_username,
+                 database_password=database_password,
+                 database_tls_skip_verify=database_tls_skip_verify,
+                 clerk_api_url=clerk_api_url,
+                 clerk_secret_key=clerk_secret_key,
+                 jwks_url=jwks_url,
+                 session_token_issuer=session_token_issuer,
+                 max_process_workers=max_process_workers,
+                 websocket_ping_timeout=websocket_ping_timeout,
+                 max_websocket_message_size=max_websocket_message_size,
+                 client_default_fetch_size=client_default_fetch_size
+                 ).run()
 
 
 @click.command()
@@ -30,6 +76,14 @@ load_dotenv(dotenv_path=".env")
     show_default=True,
     required=True,
     help=f"Run the websocket server on this port.  Defaults to environment variable SERVER_PORT if set, or {SERVER_PORT} if not set."
+)
+@click.option(
+    "--base-path",
+    type=str,
+    default=os.getenv("SERVER_BASE_PATH", SERVER_BASE_PATH),
+    show_default=True,
+    required=True,
+    help=f"Run the websocket server on this path.  Defaults to environment variable SERVER_PATH if set, or {SERVER_BASE_PATH} if not set."
 )
 @click.option(
     "--tls",
@@ -136,49 +190,25 @@ load_dotenv(dotenv_path=".env")
     help="The default websocket client fetch size for queries."
 )
 @coro
-async def main(version: bool,
-               port: int,
-               tls: list,
-               database_server_uri: str,
-               database_username: str,
-               database_password: str,
-               database_tls_skip_verify: bool,
-               clerk_api_url: str,
-               clerk_secret_key: str,
-               jwks_url: str,
-               session_token_issuer: str,
-               max_process_workers: int,
-               websocket_ping_timeout: int,
-               max_websocket_message_size: int,
-               client_default_fetch_size: int
-               ):
-    if version:
-        print(f"Arrow Flight SQL Websocket Proxy Server - version: {arrow_flight_sql_websocket_proxy_server_version}")
-        return
-
-    tls_certfile = None
-    tls_keyfile = None
-    if tls:
-        tls_certfile = Path(tls[0])
-        tls_keyfile = Path(tls[1])
-
-    await Server(port=port,
-                 tls_certfile=tls_certfile,
-                 tls_keyfile=tls_keyfile,
-                 database_server_uri=database_server_uri,
-                 database_username=database_username,
-                 database_password=database_password,
-                 database_tls_skip_verify=database_tls_skip_verify,
-                 clerk_api_url=clerk_api_url,
-                 clerk_secret_key=clerk_secret_key,
-                 jwks_url=jwks_url,
-                 session_token_issuer=session_token_issuer,
-                 max_process_workers=max_process_workers,
-                 websocket_ping_timeout=websocket_ping_timeout,
-                 max_websocket_message_size=max_websocket_message_size,
-                 client_default_fetch_size=client_default_fetch_size
-                 ).run()
+async def click_run_server(version: bool,
+                           port: int,
+                           base_path: str,
+                           tls: list,
+                           database_server_uri: str,
+                           database_username: str,
+                           database_password: str,
+                           database_tls_skip_verify: bool,
+                           clerk_api_url: str,
+                           clerk_secret_key: str,
+                           jwks_url: str,
+                           session_token_issuer: str,
+                           max_process_workers: int,
+                           websocket_ping_timeout: int,
+                           max_websocket_message_size: int,
+                           client_default_fetch_size: int
+                           ):
+    await run_server(**locals())
 
 
 if __name__ == "__main__":
-    main()
+    click_run_server()

@@ -22,6 +22,7 @@ from ..config import logger
 class Server:
     def __init__(self,
                  port: int,
+                 base_path: str,
                  tls_certfile: Path,
                  tls_keyfile: Path,
                  database_server_uri: str,
@@ -38,6 +39,7 @@ class Server:
                  client_default_fetch_size: int,
                  ):
         self.port = port
+        self.base_path = base_path
         self.tls_certfile = tls_certfile
         self.tls_keyfile = tls_keyfile
         self.database_server_uri = database_server_uri
@@ -101,7 +103,7 @@ class Server:
             await asyncio.Future()  # run forever
 
     async def connection_handler(self, websocket):
-        if websocket.request.path == "/client":
+        if websocket.request.path == f"{self.base_path.rstrip('/')}/client":
             await self.client_handler(client_websocket=websocket)
         else:
             # No handler for this path; close the connection.
