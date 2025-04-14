@@ -3,6 +3,8 @@
 [<img src="https://img.shields.io/badge/GitHub-gizmodata%2Fflight--sql--websocket--proxy-blue.svg?logo=Github">](https://github.com/gizmodata/flight-sql-websocket-proxy)
 [<img src="https://img.shields.io/badge/dockerhub-image-green?logo=Docker">](https://hub.docker.com/r/gizmodata/flight-sql-websocket-proxy)
 [![flight-sql-websocket-proxy-ci](https://github.com/gizmodata/flight-sql-websocket-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/gizmodata/flight-sql-websocket-proxy/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/flight-sql-websocket-proxy.svg)](https://badge.fury.io/py/flight-sql-websocket-proxy)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/flight-sql-websocket-proxy.svg)](https://pypi.org/project/flight-sql-websocket-proxy/)
 
 An Arrow Flight SQL WebSocket Proxy Server
 
