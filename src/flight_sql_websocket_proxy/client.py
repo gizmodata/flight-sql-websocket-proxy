@@ -133,7 +133,7 @@ async def _run_client(
         stop: asyncio.Future[None],
 ) -> None:
     print(
-        f"Starting Arrow Flight SQL Websocket Proxy Client - version: {arrow_flight_sql_websocket_proxy_client_version}")
+        f"Starting Arrow Flight SQL Websocket Proxy Client - by GizmoData™ - version: {arrow_flight_sql_websocket_proxy_client_version}")
 
     scheme = server_protocol.lower()
 

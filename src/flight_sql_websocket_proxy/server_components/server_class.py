@@ -74,7 +74,7 @@ class Server:
 
     async def run(self):
         logger.info(
-            msg=(f"Starting Arrow Flight SQL Websocket Proxy Server - version: {self.version} - (\n"
+            msg=(f"Starting Arrow Flight SQL Websocket Proxy Server - by GizmoData™ - version: {self.version} - (\n"
                  f" port: {self.port},\n"
                  f" base_path: {self.base_path},\n"
                  f" tls_certfile: {self.tls_certfile.as_posix() if self.tls_certfile else 'None'},\n"
