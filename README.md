@@ -1,5 +1,4 @@
-# Flight SQL WebSocket Proxy Server
-### Copyright © 2025 GizmoData LLC - All Rights Reserved 
+# Flight SQL WebSocket Proxy Server - by [GizmoData](https://gizmodata.com)™
 
 [<img src="https://img.shields.io/badge/GitHub-gizmodata%2Fflight--sql--websocket--proxy-blue.svg?logo=Github">](https://github.com/gizmodata/flight-sql-websocket-proxy)
 [<img src="https://img.shields.io/badge/github--package-container--image-green.svg?logo=Docker">](https://github.com/gizmodata/flight-sql-websocket-proxy/pkgs/container/flight-sql-websocket-proxy)
