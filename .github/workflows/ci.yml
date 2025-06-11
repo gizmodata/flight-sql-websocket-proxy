@@ -92,6 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing to PyPi
+      contents: write # Grant write access for creating releases
     steps:
       - name: Check out code
         uses: actions/checkout@v4
