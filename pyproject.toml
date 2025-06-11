@@ -50,7 +50,7 @@ client = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/gizmodata"
+Homepage = "https://github.com/gizmodata/flight-sql-websocket-proxy"
 
 [project.scripts]
 flight-sql-websocket-proxy-server = "flight_sql_websocket_proxy.server:click_run_server"
