@@ -18,26 +18,26 @@ version = "0.0.8"
 description = "A Python-based Apache Arrow Flight SQL WebSocket Proxy Server"
 readme = "README.md"
 authors = [{ name = "Philip Moore", email = "philip@gizmodata.com" }]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
 keywords = ["arrow", "flight", "sql", "websocket", "proxy", "server"]
 dependencies = [
-    "click==8.1.*",
+    "click==8.2.*",
     "codetiming==1.4.*",
     "munch==4.0.*",
-    "adbc-driver-flightsql==1.5.*",
-    "pyarrow==19.0.*",
+    "adbc-driver-flightsql==1.6.*",
+    "pyarrow==20.0.*",
     "python-dateutil==2.9.*",
     "pytz==2025.*",
     "websockets==15.0.*",
-    "python-dotenv==1.0.*",
-    "cryptography==43.0.*",
+    "python-dotenv==1.1.*",
+    "cryptography==45.0.*",
     "requests==2.32.*",
-    "clerk-backend-api==1.8.*",
+    "clerk-backend-api==3.0.*",
     "psutil==7.0.*"
 ]
 requires-python = ">=3.12"
